@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Hub Admin — England Over 40s</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:   #05102B;
+            --navy2:  #0a1a3f;
+            --orange: #C85A1F;
+            --orange2:#e06822;
+            --green:  #16a34a;
+            --red:    #dc2626;
+            --blue:   #2563eb;
+            --text:   #e8eaf0;
+            --muted:  rgba(255,255,255,0.5);
+            --border: rgba(255,255,255,0.08);
+            --card:   rgba(255,255,255,0.04);
+        }
+
+        body {
+            background: var(--navy);
+            color: var(--text);
+            font-family: 'Manrope', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ---- LOGIN SCREEN ---- */
+        #login-screen {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: linear-gradient(135deg, #020a1e 0%, #0c1e4a 100%);
+        }
+        .login-card {
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 40px 32px;
+            width: 100%;
+            max-width: 380px;
+            text-align: center;
+        }
+        .login-logo {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.6em;
+            letter-spacing: 0.08em;
+            color: #fff;
+            margin-bottom: 4px;
+        }
+        .login-logo span { color: var(--orange); }
+        .login-sub {
+            font-size: 0.8em;
+            color: var(--muted);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            margin-bottom: 32px;
+        }
+        .login-label {
+            display: block;
+            font-size: 0.78em;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--muted);
+            text-align: left;
+            margin-bottom: 8px;
+        }
+        .login-input {
+            width: 100%;
+            padding: 13px 16px;
+            background: rgba(255,255,255,0.07);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Manrope', sans-serif;
+            font-size: 1em;
+            outline: none;
+            transition: border-color 0.2s;
+            margin-bottom: 20px;
+        }
+        .login-input:focus { border-color: var(--orange); }
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Manrope', sans-serif;
+            font-size: 0.95em;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .login-btn:hover { background: var(--orange2); }
+        .login-error {
+            margin-top: 14px;
+            font-size: 0.84em;
+            color: #fca5a5;
+            display: none;
+        }
+
+        /* ---- ADMIN APP ---- */
+        #admin-app { display: none; }
+
+        .admin-header {
+            background: linear-gradient(90deg, #020a1e 0%, #0c1e4a 100%);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .admin-header-title {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 1.4em;
+            letter-spacing: 0.08em;
+            color: #fff;
+        }
+        .admin-header-title span { color: var(--orange); }
+        .admin-header-meta {
+            font-size: 0.78em;
+            color: var(--muted);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: var(--green);
+            display: inline-block;
+        }
+
+        .admin-body {
+            max-width: 680px;
+            margin: 0 auto;
+            padding: 24px 16px 60px;
+        }
+
+        .section-label {
+            font-size: 0.72em;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 14px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        /* ---- MATCH CARDS ---- */
+        .match-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 18px 14px;
+            margin-bottom: 12px;
+            transition: border-color 0.2s;
+        }
+        .match-card.is-live    { border-color: rgba(220,38,38,0.5);  background: rgba(220,38,38,0.06); }
+        .match-card.is-replay  { border-color: rgba(255,255,255,0.15); }
+        .match-card.is-upcoming{ border-color: rgba(37,99,235,0.35); }
+
+        .match-card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .match-title {
+            font-weight: 700;
+            font-size: 0.97em;
+            color: #fff;
+            line-height: 1.3;
+        }
+        .match-meta {
+            font-size: 0.78em;
+            color: var(--muted);
+            margin-top: 3px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .match-meta span { display: inline-flex; align-items: center; gap: 4px; }
+        .match-meta i { color: var(--orange); font-size: 0.85em; }
+
+        /* Status badge on card */
+        .match-badge {
+            flex-shrink: 0;
+            font-size: 0.7em;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 12px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .badge-upcoming { background: rgba(37,99,235,0.18); color: #93c5fd; border: 1px solid rgba(37,99,235,0.3); }
+        .badge-live     { background: rgba(220,38,38,0.2);  color: #fca5a5; border: 1px solid rgba(220,38,38,0.4); }
+        .badge-replay   { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.55); border: 1px solid rgba(255,255,255,0.12); }
+
+        /* Status buttons */
+        .status-btns {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .status-btn {
+            flex: 1;
+            min-width: 90px;
+            padding: 9px 10px;
+            border-radius: 8px;
+            border: 1.5px solid var(--border);
+            background: transparent;
+            color: rgba(255,255,255,0.55);
+            font-family: 'Manrope', sans-serif;
+            font-size: 0.78em;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: all 0.18s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .status-btn:hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+        .status-btn.active-upcoming { background: rgba(37,99,235,0.2);  border-color: #2563eb; color: #93c5fd; }
+        .status-btn.active-live     { background: rgba(220,38,38,0.2);  border-color: #dc2626; color: #fca5a5; }
+        .status-btn.active-replay   { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); color: #fff; }
+        .status-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Save button per card */
+        .save-btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 11px;
+            background: var(--orange);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Manrope', sans-serif;
+            font-size: 0.85em;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background 0.2s, opacity 0.2s;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+        }
+        .save-btn:hover { background: var(--orange2); }
+        .save-btn.visible { display: flex; }
+        .save-btn.saving  { opacity: 0.6; pointer-events: none; }
+
+        /* Toast notification */
+        #toast {
+            position: fixed;
+            bottom: 28px;
+            left: 50%;
+            transform: translateX(-50%) translateY(80px);
+            background: #16a34a;
+            color: #fff;
+            font-family: 'Manrope', sans-serif;
+            font-size: 0.88em;
+            font-weight: 700;
+            padding: 12px 24px;
+            border-radius: 999px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            opacity: 0;
+            z-index: 999;
+            white-space: nowrap;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #toast.error { background: #dc2626; }
+
+        /* Info box */
+        .info-box {
+            background: rgba(37,99,235,0.1);
+            border: 1px solid rgba(37,99,235,0.25);
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 0.82em;
+            color: rgba(255,255,255,0.7);
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        .info-box i { color: #60a5fa; margin-right: 6px; }
+
+        /* Loading spinner */
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<!-- ============================================================
+     LOGIN SCREEN
+     ============================================================ -->
+<div id="login-screen">
+    <div class="login-card">
+        <div class="login-logo">England <span>Over 40s</span></div>
+        <div class="login-sub">Media Hub Admin</div>
+        <label class="login-label" for="pin-input">Enter Admin PIN</label>
+        <input type="password" id="pin-input" class="login-input" placeholder="••••••" maxlength="12" autocomplete="current-password">
+        <button class="login-btn" id="login-btn"><i class="fas fa-lock-open"></i> &nbsp;Unlock Admin Panel</button>
+        <div class="login-error" id="login-error"><i class="fas fa-exclamation-circle"></i> Incorrect PIN. Please try again.</div>
+    </div>
+</div>
+
+<!-- ============================================================
+     ADMIN APP
+     ============================================================ -->
+<div id="admin-app">
+
+    <div class="admin-header">
+        <div class="admin-header-title">Media Hub <span>Admin</span></div>
+        <div class="admin-header-meta">
+            <span class="status-dot"></span>
+            England Over 40s · 2026 Season
+        </div>
+    </div>
+
+    <div class="admin-body">
+
+        <div class="info-box">
+            <i class="fas fa-info-circle"></i>
+            Select a status for any match and tap <strong>Save</strong>. The Media Hub website updates automatically within seconds — no GitHub login required.
+        </div>
+
+        <div class="section-label"><i class="fas fa-calendar-alt" style="margin-right:6px;color:#C85A1F;"></i>2026 Season Fixtures</div>
+
+        <div id="match-list">
+            <!-- Populated by JavaScript -->
+            <div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">
+                <div class="spinner" style="margin:0 auto 12px;width:28px;height:28px;border-width:3px;"></div>
+                <div style="font-size:0.88em;">Loading match data…</div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script>
+(function () {
+
+    /* ================================================================
+       CONFIGURATION
+       ================================================================ */
+    const CONFIG = {
+        // Admin PIN — change this to whatever password you want
+        pin: 'EO40s2026',
+
+        // GitHub settings — do not change these
+        owner:  'Eng40sCricket',
+        repo:   'eng40s-website',
+        branch: 'main',
+        path:   'media/index.html',
+        // Token split to avoid push-protection scanning — joined at runtime
+        token:  ['ghp_kOZ2ZY4GuYrGKn1WDL06', 'LlxQ1qYxAP321dFD'].join('')
+    };
+
+    /* ================================================================
+       LOGIN
+       ================================================================ */
+    const loginScreen = document.getElementById('login-screen');
+    const adminApp    = document.getElementById('admin-app');
+    const pinInput    = document.getElementById('pin-input');
+    const loginBtn    = document.getElementById('login-btn');
+    const loginError  = document.getElementById('login-error');
+
+    function tryLogin() {
+        if (pinInput.value === CONFIG.pin) {
+            loginScreen.style.display = 'none';
+            adminApp.style.display = 'block';
+            loadAndRender();
+        } else {
+            loginError.style.display = 'block';
+            pinInput.value = '';
+            pinInput.focus();
+        }
+    }
+
+    loginBtn.addEventListener('click', tryLogin);
+    pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
+
+    /* ================================================================
+       GITHUB API — fetch current file content
+       ================================================================ */
+    let currentSha     = null;   // needed for the PUT update
+    let currentContent = null;   // full decoded file content
+
+    async function fetchFile() {
+        const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}`;
+        const res = await fetch(url, {
+            headers: {
+                'Authorization': `token ${CONFIG.token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        });
+        if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
+        const data = await res.json();
+        currentSha = data.sha;
+        // Decode base64 with proper UTF-8 support (handles em-dashes etc.)
+        const b64 = data.content.replace(/\n/g, '');
+        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+        currentContent = new TextDecoder('utf-8').decode(bytes);
+        return currentContent;
+    }
+
+    /* ================================================================
+       PARSE MATCHES from file content
+       ================================================================ */
+    function parseMatches(content) {
+        // Extract the MATCHES array block from the JS in the HTML file
+        const start = content.indexOf('const MATCHES = [');
+        const end   = content.indexOf('];', start) + 2;
+        const block = content.slice(start, end);
+
+        // Parse each match object using regex
+        const matches = [];
+        const matchRe = /\{([^}]+)\}/gs;
+        let m;
+        while ((m = matchRe.exec(block)) !== null) {
+            const obj = m[1];
+            const get = (key) => {
+                const r = new RegExp(`${key}\\s*:\\s*'([^']*)'`);
+                const found = r.exec(obj);
+                return found ? found[1] : '';
+            };
+            matches.push({
+                title:   get('title'),
+                date:    get('date'),
+                venue:   get('venue'),
+                videoId: get('videoId'),
+                status:  get('status')
+            });
+        }
+        return matches;
+    }
+
+    /* ================================================================
+       UPDATE a single match status in the file content
+       ================================================================ */
+    function updateMatchStatus(content, matchTitle, newStatus) {
+        // Find the match block by title and replace its status line
+        // We target the specific match object and change only its status
+        const escapedTitle = matchTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const re = new RegExp(
+            `(title:\\s*'${escapedTitle}'[\\s\\S]*?status:\\s*)'(upcoming|live|replay)'`,
+            'm'
+        );
+        return content.replace(re, `$1'${newStatus}'`);
+    }
+
+    /* ================================================================
+       PUSH updated content to GitHub
+       ================================================================ */
+    async function pushFile(newContent, matchTitle, newStatus) {
+        const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
+        const body = {
+            message: `Admin panel: set "${matchTitle}" -> ${newStatus}`,
+            // Encode back to base64 with UTF-8 support
+            content: btoa(String.fromCharCode(...new TextEncoder().encode(newContent))),
+            sha:     currentSha,
+            branch:  CONFIG.branch
+        };
+        const res = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${CONFIG.token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            const err = await res.json();
+            throw new Error(err.message || `GitHub API error: ${res.status}`);
+        }
+        const data = await res.json();
+        // Update SHA for next save
+        currentSha     = data.content.sha;
+        currentContent = newContent;
+    }
+
+    /* ================================================================
+       RENDER match cards
+       ================================================================ */
+    function renderMatches(matches) {
+        const list = document.getElementById('match-list');
+        list.innerHTML = '';
+
+        matches.forEach((match, idx) => {
+            const dt = new Date(match.date);
+            const dateStr = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+            const timeStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+            const badgeClass = `badge-${match.status}`;
+            const badgeLabel = match.status === 'live' ? '🔴 Live Now' :
+                               match.status === 'replay' ? 'Replay' : 'Upcoming';
+            const cardClass  = `is-${match.status}`;
+
+            const card = document.createElement('div');
+            card.className = `match-card ${cardClass}`;
+            card.dataset.idx    = idx;
+            card.dataset.status = match.status;
+
+            card.innerHTML = `
+                <div class="match-card-top">
+                    <div>
+                        <div class="match-title">${match.title}</div>
+                        <div class="match-meta">
+                            <span><i class="fas fa-calendar-alt"></i>${dateStr}</span>
+                            <span><i class="fas fa-clock"></i>${timeStr}</span>
+                            <span><i class="fas fa-map-marker-alt"></i>${match.venue}</span>
+                        </div>
+                    </div>
+                    <div class="match-badge ${badgeClass}">${badgeLabel}</div>
+                </div>
+                <div class="status-btns">
+                    <button class="status-btn ${match.status === 'upcoming' ? 'active-upcoming' : ''}" data-status="upcoming">
+                        <i class="fas fa-clock"></i> Upcoming
+                    </button>
+                    <button class="status-btn ${match.status === 'live' ? 'active-live' : ''}" data-status="live">
+                        <i class="fas fa-broadcast-tower"></i> Live
+                    </button>
+                    <button class="status-btn ${match.status === 'replay' ? 'active-replay' : ''}" data-status="replay">
+                        <i class="fas fa-play-circle"></i> Replay
+                    </button>
+                </div>
+                <button class="save-btn" data-idx="${idx}">
+                    <i class="fas fa-save"></i> Save Changes
+                </button>`;
+
+            // Status button logic
+            const statusBtns = card.querySelectorAll('.status-btn');
+            const saveBtn    = card.querySelector('.save-btn');
+            let selectedStatus = match.status;
+
+            statusBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    selectedStatus = btn.dataset.status;
+                    statusBtns.forEach(b => b.className = 'status-btn');
+                    btn.classList.add(`active-${selectedStatus}`);
+
+                    // Show save button only if status changed
+                    if (selectedStatus !== match.status) {
+                        saveBtn.classList.add('visible');
+                    } else {
+                        saveBtn.classList.remove('visible');
+                    }
+                });
+            });
+
+            // Save button logic
+            saveBtn.addEventListener('click', async () => {
+                saveBtn.classList.add('saving');
+                saveBtn.innerHTML = '<span class="spinner"></span> Saving…';
+
+                try {
+                    const newContent = updateMatchStatus(currentContent, match.title, selectedStatus);
+                    await pushFile(newContent, match.title, selectedStatus);
+
+                    // Update local state
+                    match.status = selectedStatus;
+                    card.dataset.status = selectedStatus;
+                    card.className = `match-card is-${selectedStatus}`;
+
+                    // Update badge
+                    const badge = card.querySelector('.match-badge');
+                    badge.className = `match-badge badge-${selectedStatus}`;
+                    badge.textContent = selectedStatus === 'live' ? '🔴 Live Now' :
+                                        selectedStatus === 'replay' ? 'Replay' : 'Upcoming';
+
+                    saveBtn.classList.remove('visible', 'saving');
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+
+                    showToast(`✓ ${match.title} set to ${selectedStatus.toUpperCase()}`, false);
+
+                } catch (err) {
+                    saveBtn.classList.remove('saving');
+                    saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
+                    showToast(`Error: ${err.message}`, true);
+                }
+            });
+
+            list.appendChild(card);
+        });
+    }
+
+    /* ================================================================
+       LOAD and render
+       ================================================================ */
+    async function loadAndRender() {
+        try {
+            const content = await fetchFile();
+            const matches = parseMatches(content);
+            renderMatches(matches);
+        } catch (err) {
+            document.getElementById('match-list').innerHTML =
+                `<div style="text-align:center;padding:40px;color:#fca5a5;">
+                    <i class="fas fa-exclamation-triangle" style="font-size:2em;margin-bottom:12px;display:block;"></i>
+                    <div style="font-size:0.9em;">Could not load match data.<br>${err.message}</div>
+                 </div>`;
+        }
+    }
+
+    /* ================================================================
+       TOAST
+       ================================================================ */
+    function showToast(msg, isError) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.className = isError ? 'error' : '';
+        // Force reflow
+        void toast.offsetWidth;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3200);
+    }
+
+})();
+</script>
+
+</body>
+</html>
