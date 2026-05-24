@@ -377,22 +377,44 @@
 
     /* ================================================================
        CONFIGURATION
+       ----------------------------------------------------------------
+       No secrets live in this page. The GitHub token is held
+       server-side in a Netlify function (netlify/functions/yt-status.js).
+       This page only ever sends the admin PIN, which the function
+       verifies. There is nothing here for a page visitor to read.
        ================================================================ */
-    const CONFIG = {
-        // Admin PIN — change this to whatever password you want
-        pin: 'EO40s2026',
+    const FUNCTION_URL = '/.netlify/functions/yt-status';
 
-        // GitHub settings — do not change these
-        owner:  'Eng40sCricket',
-        repo:   'eng40s-website',
-        branch: 'main',
-        path:   'media/index.html',
-        // Token stored as reversed base64 fragments — reconstructed at runtime only
-        token: (()=>{ const _a='REZkMTIzUEF4WXExUX', _b='hsTDYwTERXMW5LR3JZ', _c='dUc0WVoyWk9rX3BoZw=='; return atob(_a+_b+_c).split('').reverse().join(''); })()
-    };
+    // Held in memory only, for the length of the session, after a
+    // successful unlock. Never written into the page or to storage.
+    let sessionPin = null;
 
     /* ================================================================
-       LOGIN
+       BACKEND CALL — every GitHub read and write goes through here
+       ================================================================ */
+    async function callBackend(payload) {
+        let res;
+        try {
+            res = await fetch(FUNCTION_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (e) {
+            throw new Error('Could not reach the server. Check your connection.');
+        }
+        let data = {};
+        try { data = await res.json(); } catch (e) { /* non-JSON response */ }
+        if (!res.ok) {
+            const err = new Error(data.error || ('Request failed (' + res.status + ').'));
+            err.status = res.status;
+            throw err;
+        }
+        return data;
+    }
+
+    /* ================================================================
+       LOGIN — the PIN is verified server-side by the function
        ================================================================ */
     const loginScreen = document.getElementById('login-screen');
     const adminApp    = document.getElementById('admin-app');
@@ -400,120 +422,43 @@
     const loginBtn    = document.getElementById('login-btn');
     const loginError  = document.getElementById('login-error');
 
-    function tryLogin() {
-        if (pinInput.value === CONFIG.pin) {
+    function showLoginError(msg) {
+        loginError.innerHTML = '<i class="fas fa-exclamation-circle"></i> ' + msg;
+        loginError.style.display = 'block';
+    }
+
+    async function tryLogin() {
+        const pin = pinInput.value.trim();
+        if (!pin) return;
+
+        loginError.style.display = 'none';
+        loginBtn.disabled = true;
+        const originalLabel = loginBtn.innerHTML;
+        loginBtn.innerHTML = '<span class="spinner"></span> &nbsp;Checking…';
+
+        try {
+            // A successful "load" both verifies the PIN and returns the data.
+            const data = await callBackend({ action: 'load', pin: pin });
+            sessionPin = pin;
             loginScreen.style.display = 'none';
             adminApp.style.display = 'block';
-            loadAndRender();
-        } else {
-            loginError.style.display = 'block';
+            renderMatches(data.matches || []);
+        } catch (err) {
+            if (err.status === 401) {
+                showLoginError('Incorrect PIN. Please try again.');
+            } else {
+                showLoginError(err.message || 'Could not connect. Please try again.');
+            }
             pinInput.value = '';
             pinInput.focus();
+        } finally {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = originalLabel;
         }
     }
 
     loginBtn.addEventListener('click', tryLogin);
     pinInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(); });
-
-    /* ================================================================
-       GITHUB API — fetch current file content
-       ================================================================ */
-    let currentSha     = null;   // needed for the PUT update
-    let currentContent = null;   // full decoded file content
-
-    async function fetchFile() {
-        const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}?ref=${CONFIG.branch}`;
-        const res = await fetch(url, {
-            headers: {
-                'Authorization': `token ${CONFIG.token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-        if (!res.ok) throw new Error(`GitHub API error: ${res.status}`);
-        const data = await res.json();
-        currentSha = data.sha;
-        // Decode base64 with proper UTF-8 support (handles em-dashes etc.)
-        const b64 = data.content.replace(/\n/g, '');
-        const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-        currentContent = new TextDecoder('utf-8').decode(bytes);
-        return currentContent;
-    }
-
-    /* ================================================================
-       PARSE MATCHES from file content
-       ================================================================ */
-    function parseMatches(content) {
-        // Extract the MATCHES array block from the JS in the HTML file
-        const start = content.indexOf('const MATCHES = [');
-        const end   = content.indexOf('];', start) + 2;
-        const block = content.slice(start, end);
-
-        // Parse each match object using regex
-        const matches = [];
-        const matchRe = /\{([^}]+)\}/gs;
-        let m;
-        while ((m = matchRe.exec(block)) !== null) {
-            const obj = m[1];
-            const get = (key) => {
-                const r = new RegExp(`${key}\\s*:\\s*'([^']*)'`);
-                const found = r.exec(obj);
-                return found ? found[1] : '';
-            };
-            matches.push({
-                title:   get('title'),
-                date:    get('date'),
-                venue:   get('venue'),
-                videoId: get('videoId'),
-                status:  get('status')
-            });
-        }
-        return matches;
-    }
-
-    /* ================================================================
-       UPDATE a single match status in the file content
-       ================================================================ */
-    function updateMatchStatus(content, matchTitle, newStatus) {
-        // Find the match block by title and replace its status line
-        // We target the specific match object and change only its status
-        const escapedTitle = matchTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const re = new RegExp(
-            `(title:\\s*'${escapedTitle}'[\\s\\S]*?status:\\s*)'(upcoming|live|replay)'`,
-            'm'
-        );
-        return content.replace(re, `$1'${newStatus}'`);
-    }
-
-    /* ================================================================
-       PUSH updated content to GitHub
-       ================================================================ */
-    async function pushFile(newContent, matchTitle, newStatus) {
-        const url = `https://api.github.com/repos/${CONFIG.owner}/${CONFIG.repo}/contents/${CONFIG.path}`;
-        const body = {
-            message: `Admin panel: set "${matchTitle}" -> ${newStatus}`,
-            // Encode back to base64 with UTF-8 support
-            content: btoa(String.fromCharCode(...new TextEncoder().encode(newContent))),
-            sha:     currentSha,
-            branch:  CONFIG.branch
-        };
-        const res = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${CONFIG.token}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.message || `GitHub API error: ${res.status}`);
-        }
-        const data = await res.json();
-        // Update SHA for next save
-        currentSha     = data.content.sha;
-        currentContent = newContent;
-    }
 
     /* ================================================================
        RENDER match cards
@@ -522,10 +467,22 @@
         const list = document.getElementById('match-list');
         list.innerHTML = '';
 
+        if (!matches.length) {
+            list.innerHTML =
+                '<div style="text-align:center;padding:40px;color:rgba(255,255,255,0.4);">' +
+                '<div style="font-size:0.9em;">No matches found in the Media Hub page.</div></div>';
+            return;
+        }
+
         matches.forEach((match, idx) => {
             const dt = new Date(match.date);
-            const dateStr = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-            const timeStr = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+            const validDate = !isNaN(dt.getTime());
+            const dateStr = validDate
+                ? dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })
+                : match.date;
+            const timeStr = validDate
+                ? dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+                : '';
 
             const badgeClass = `badge-${match.status}`;
             const badgeLabel = match.status === 'live' ? '🔴 Live Now' :
@@ -543,7 +500,7 @@
                         <div class="match-title">${match.title}</div>
                         <div class="match-meta">
                             <span><i class="fas fa-calendar-alt"></i>${dateStr}</span>
-                            <span><i class="fas fa-clock"></i>${timeStr}</span>
+                            ${timeStr ? `<span><i class="fas fa-clock"></i>${timeStr}</span>` : ''}
                             <span><i class="fas fa-map-marker-alt"></i>${match.venue}</span>
                         </div>
                     </div>
@@ -584,14 +541,18 @@
                 });
             });
 
-            // Save button logic
+            // Save button logic — the change is performed by the function
             saveBtn.addEventListener('click', async () => {
                 saveBtn.classList.add('saving');
                 saveBtn.innerHTML = '<span class="spinner"></span> Saving…';
 
                 try {
-                    const newContent = updateMatchStatus(currentContent, match.title, selectedStatus);
-                    await pushFile(newContent, match.title, selectedStatus);
+                    await callBackend({
+                        action: 'save',
+                        pin:    sessionPin,
+                        title:  match.title,
+                        status: selectedStatus
+                    });
 
                     // Update local state
                     match.status = selectedStatus;
@@ -612,29 +573,16 @@
                 } catch (err) {
                     saveBtn.classList.remove('saving');
                     saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Changes';
-                    showToast(`Error: ${err.message}`, true);
+                    if (err.status === 401) {
+                        showToast('Session expired — please reload the page and sign in again.', true);
+                    } else {
+                        showToast(`Error: ${err.message}`, true);
+                    }
                 }
             });
 
             list.appendChild(card);
         });
-    }
-
-    /* ================================================================
-       LOAD and render
-       ================================================================ */
-    async function loadAndRender() {
-        try {
-            const content = await fetchFile();
-            const matches = parseMatches(content);
-            renderMatches(matches);
-        } catch (err) {
-            document.getElementById('match-list').innerHTML =
-                `<div style="text-align:center;padding:40px;color:#fca5a5;">
-                    <i class="fas fa-exclamation-triangle" style="font-size:2em;margin-bottom:12px;display:block;"></i>
-                    <div style="font-size:0.9em;">Could not load match data.<br>${err.message}</div>
-                 </div>`;
-        }
     }
 
     /* ================================================================

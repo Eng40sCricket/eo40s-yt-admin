@@ -1,0 +1,13 @@
+# Netlify configuration
+# England Over 40s Cricket — YouTube Status Updater
+#
+# The site is plain static files served from the repository root.
+# One serverless function (netlify/functions/yt-status.js) holds the
+# GitHub token server-side so it never reaches the browser.
+
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
